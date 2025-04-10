@@ -8,7 +8,8 @@ sports = [
 
 markets = "h2h,spreads,totals"  # Solo los soportados
 regions = "us"  # 'us', 'uk', 'eu', 'au'
-webhook_url = "https://n8n-floki.onrender.com/webhook/apuesta"
+webhook_url = "https://n8n-floki.onrender.com/webhook/predicciones-reales"
+
   # Webhook de n8n
 
 print("[📡 Buscando apuestas de valor...]")
