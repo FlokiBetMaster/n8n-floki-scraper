@@ -1,36 +1,54 @@
 import requests
 
 API_KEY = "a6fdcc949cb6e52a9f9fbbfff6e44b30"
+CHAT_ID = "2130752167"
+BOT_TOKEN = "7673667307:AAHxupSKq1xC-QP2Pl6q_wQEXSJMzwuefCU"
+
 sports = [
     "soccer_conmebol_copa_libertadores",
     "soccer_conmebol_copa_sudamericana"
 ]
 
-markets = "h2h,spreads,totals"  # Solo los soportados
-regions = "us"  # 'us', 'uk', 'eu', 'au'
-webhook_url = "https://n8n-floki.onrender.com/webhook/predicciones-reales"
-
-  # Webhook de n8n
+markets = "h2h,spreads,totals"
+regions = "us"
 
 print("[📡 Buscando apuestas de valor...]")
 
 def calcular_stake(probabilidad):
-    # Cuanto más baja la probabilidad, mayor el stake (modelo simple)
-    if probabilidad > 50:
+    if probabilidad >= 70:
         return 10
-    elif probabilidad > 40:
-        return 20
-    elif probabilidad > 30:
-        return 30
-    elif probabilidad > 20:
-        return 40
-    elif probabilidad > 10:
-        return 60
+    elif probabilidad >= 60:
+        return 8
+    elif probabilidad >= 50:
+        return 6
+    elif probabilidad >= 40:
+        return 4
     else:
-        return 100 + (10 - probabilidad) * 1.5
+        return 2
+
+def enviar_a_telegram(apuesta):
+    mensaje = f"""
+⚽ ¡Nueva Apuesta Recomendada!
+📍 Partido: {apuesta['teams']}
+🎯 Apuesta: {apuesta['tipo']}
+💸 Cuota: {apuesta['cuota']}
+🔥 Confianza: {apuesta['odds']}%
+📊 Stake sugerido: {apuesta['stake']}
+"""
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": mensaje,
+        "parse_mode": "Markdown"
+    }
+    try:
+        res = requests.post(url, json=payload)
+        print("🚀 Enviado a Telegram:", res.status_code)
+    except Exception as e:
+        print("❌ Error al enviar a Telegram:", e)
 
 def buscar_apuestas_valor():
-    apuestas_valor = []
+    apuestas_finales = {}
 
     for sport in sports:
         url = f"https://api.the-odds-api.com/v4/sports/{sport}/odds"
@@ -51,50 +69,41 @@ def buscar_apuestas_valor():
 
             for evento in data:
                 equipos = evento["home_team"] + " vs " + evento["away_team"]
+                mejor_apuesta = None
+
                 for bookmaker in evento["bookmakers"]:
                     for mercado in bookmaker["markets"]:
                         for outcome in mercado["outcomes"]:
                             cuota = outcome["price"]
-                            if cuota > 2.0:  # Solo valor si la cuota es alta
-                                probabilidad = 100 / cuota
+                            if cuota > 1.5:
+                                probabilidad = round(100 / cuota, 2)
                                 stake = calcular_stake(probabilidad)
-                                apuestas_valor.append({
+                                apuesta = {
                                     "teams": equipos,
+                                    "tipo": outcome["name"],
                                     "odds": probabilidad,
-                                    "stake": stake,
-                                    "tipo": outcome["name"]
-                                })
+                                    "cuota": cuota,
+                                    "stake": stake
+                                }
+
+                                if not mejor_apuesta or apuesta["odds"] > mejor_apuesta["odds"]:
+                                    mejor_apuesta = apuesta
+
+                if mejor_apuesta:
+                    apuestas_finales[equipos] = mejor_apuesta
 
         except Exception as e:
-            print(f"❌ Error de conexión: {e}")
+            print("❌ Error:", e)
             continue
 
-    return apuestas_valor
+    return apuestas_finales.values()
 
 # Ejecutar
-apuestas_valor = buscar_apuestas_valor()
+apuestas = buscar_apuestas_valor()
 
-if apuestas_valor:
-    for apuesta in apuestas_valor:
-        print(f"📢 Apuesta de Valor Encontrada:")
-        print(f"🆚 Partido: {apuesta['teams']}")
-        print(f"🎯 Tipo: {apuesta['tipo']}")
-        print(f"📈 Probabilidad: {apuesta['odds']:.2f}%")
-        print(f"💰 Stake sugerido: {apuesta['stake']}")
-        print("-" * 30)
-
-        # Enviar a Telegram vía webhook de n8n
-        payload = {
-            "teams": apuesta["teams"],
-            "odds": round(apuesta["odds"], 2),
-            "stake": apuesta["stake"],
-            "competition": "Copa Libertadores / Sudamericana"
-        }
-
-        try:
-            res = requests.post(webhook_url, json=payload)
-            print(f"🚀 Enviado a Telegram: {res.status_code}")
-        except Exception as e:
-            print(f"❌ Error al enviar al bot: {e}")
+if apuestas:
+    for apuesta in apuestas:
+        print(f"📢 Apuesta Recomendada: {apuesta['teams']} - {apuesta['tipo']} ({apuesta['odds']}%)")
+        enviar_a_telegram(apuesta)
 else:
     print("🔍 No se encontraron apuestas de valor para hoy.")
