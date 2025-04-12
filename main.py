@@ -1,21 +1,20 @@
 from fetch_odds import fetch_odds
-from predict import select_best_bet
-from stake_manager import calculate_stake
-from telegram import send_to_telegram
+from predict import get_best_bet_per_match
+from stake_manager import calculate_stake, update_bank
+from telegram import send_telegram_message
 
 def main():
-    print("[📡 Cargando partidos...]")
-    matches = fetch_odds()
-    print(f"[✅ Partidos encontrados: {len(matches)}]")
-    predictions = select_best_bet(matches)
+    print("📡 [ Cargando partidos en vivo...]")
+    events = fetch_odds()
+    print(f"✅ [ Partidos encontrados: {len(events)} ]")
+    best_bets = get_best_bet_per_match(events)
+    bank = 100000
 
-    for pred in predictions:
-        prob = round(100 / pred['cuota'], 2)
-        stake = calculate_stake(prob)
-        pred["confianza"] = prob
-        pred["stake"] = stake
-        print(f"📢 {pred['teams']} | {pred['tipo']} | Cuota: {pred['cuota']} | Confianza: {prob}% | Stake: {stake}")
-        send_to_telegram(pred)
+    for bet in best_bets:
+        bet["stake"] = calculate_stake(bet["odds"], bank)
+        bank = update_bank(bank, bet["stake"])["new_bank"]
+        print(f"📢 Apuesta: {bet}")
+        send_telegram_message(bet)
 
 if __name__ == "__main__":
     main()
