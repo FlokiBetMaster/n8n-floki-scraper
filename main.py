@@ -1,3 +1,4 @@
+print("Iniciando bot...")
 from fetch_odds import fetch_odds
 from predict import get_best_bet_per_match
 from stake_manager import calculate_stake, update_bank
