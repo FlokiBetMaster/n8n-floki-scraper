@@ -5,7 +5,7 @@ CHAT_ID = "2130752167"
 
 def send_telegram_message(bet):
     msg = (
-        f"⚽ *Apuesta Recomendada*\n\n"
+        f"⚽ *¡Apuesta Recomendada!*\n\n"
         f"📍 *Partido:* {bet['teams']}\n"
         f"🎯 *Apuesta:* {bet['type']}\n"
         f"📈 *Probabilidad:* {bet['odds']}%\n"
