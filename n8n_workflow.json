@@ -1,0 +1,70 @@
+{
+  "name": "FlokiBot Valhalla - Odds API to Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "interval": 360
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "requestMethod": "GET",
+        "url": "https://api.the-odds-api.com/v4/sports/soccer_epl/odds",
+        "options": {
+          "queryParameters": {
+            "apiKey": "a6fdcc949cb6e52a9f9fbbfff6e44b30",
+            "regions": "eu",
+            "markets": "h2h,totals"
+          }
+        }
+      },
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const predictions = [];\nfor (const match of items[0].json) {\n  const home_team = match.home_team || 'Unknown';\n  const away_team = match.away_team || 'Unknown';\n  try {\n    const h2h_odds = match.bookmakers[0].markets[0].outcomes;\n    const home_odds = h2h_odds[0].price;\n    const prob = 100 / home_odds;\n    const valor_esperado = (prob / 100) * home_odds;\n    if (valor_esperado > 1.10 && home_odds >= 1.5 && home_odds <= 3.0) {\n      predictions.push({\n        match: `${home_team} vs ${away_team}`,\n        bet: `${home_team} gana`,\n        odds: home_odds,\n        confidence: prob / 100,\n        market: '1X2'\n      });\n    }\n  } catch (e) {}\n}\nreturn predictions.map(p => ({ json: p }));"
+      },
+      "name": "Function",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "headerAuth": {
+          "name": "Authorization",
+          "value": "Bot 7673667307:AAHxupSKq1xC-QP2Pl6q_wQEXSJMzwuefCU"
+        },
+        "requestMethod": "POST",
+        "url": "https://api.telegram.org/bot{{ $node['Telegram'].credentials.headerAuth.value }}/sendMessage",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "{\"chat_id\": \"2130752167\", \"text\": \"🏆 {{ $json.match }}\\nApuesta: {{ $json.bet }}\\nCuota: {{ $json.odds }}\\nConfianza: {{ ($json.confidence * 100).toFixed(1) }}%\", \"reply_markup\": {\"inline_keyboard\": [[{\"text\": \"Apostar en Bwin\", \"url\": \"https://www.bwin.com/es/sports/futbol-4/partido/{{ $json.match.toLowerCase().replace(' vs ', '-vs-') }}\"}]]}}"
+      },
+      "name": "Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]]
+    },
+    "HTTP Request": {
+      "main": [[{ "node": "Function", "type": "main", "index": 0 }]]
+    },
+    "Function": {
+      "main": [[{ "node": "Telegram", "type": "main", "index": 0 }]]
+    }
+  }
+}
